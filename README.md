@@ -29,7 +29,8 @@ const options = {
     public: true,
     maxClients: Infinity,
 };
-const lobby = createLobby("Potatoes");
+const lobbyName = "Potatoes";
+const lobby = createLobby(lobbyName, options);
 
 if (lobby) {
     lobby.onClientConnect = client => {
@@ -44,7 +45,7 @@ if (lobby) {
     };
 }
 else {
-    console.log("Potates lobby already exists");
+    console.log(lobbyName, "lobby already exists");
 }
 ```
 
@@ -116,7 +117,7 @@ if (lobbies.get("Potatoes").invitations.length == 0) {
     }
     // Host -> Server
     {
-        reply: "request-invitation",
+        type: "reply:request-invitation",
         lobbyName: "Potatoes",
         invitations: { id, RTCOffer },
     }
@@ -124,7 +125,7 @@ if (lobbies.get("Potatoes").invitations.length == 0) {
 
 // Server -> Client
 {
-    reply: "request-invitation",
+    type: "reply:request-invitation",
     lobbyName: "Potatoes",
     invitation: { id, RTCOffer },
 }
@@ -138,7 +139,7 @@ if (lobbies.get("Potatoes").invitations.length == 0) {
 
 // Host -> Server
 {
-    reply: "used-invitation",
+    type: "reply:used-invitation",
     lobbyName: "Potatoes",
     // if max clients hasn't been reached,
     // it will send another invitation.
@@ -161,7 +162,7 @@ if (lobbies.get("Potatoes").invitations.length == 0) {
 
 // Host -> Server
 {
-    reply: "client-connection",
+    type: "reply:client-connection",
     lobbyName: "Potatoes",
 }
 ```
