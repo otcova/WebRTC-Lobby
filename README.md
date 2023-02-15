@@ -1,32 +1,24 @@
 # WebRTC Lobby
 
-## General Functionality?
+Signalling server for WebRTC with a layer of abstraction.
 
-There are three main agent types: Server, Host, Client.
+One user is the host of the Lobby, and the others can join as clients.
+The lobby can have a custom name and be private or public.
+Therefore the clients can join by name, or choose a lobby from the public list.
+
+## How it works
 
 - **Server:**
-Is the one responsible to track the current lobbies and
-make the RTC Signaling.
+To do the RTC Signaling we need a server. It will also
+keeps track of the current lobbies.
 
 - **Host:**
-Is the user that creates the lobby. He will be the only one
-able to connect to to every user of the lobby.
+The user that creates the lobby. He will be able to
+connect to every client.
 
 - **Client:**
-Is the user that joins to a lobby. He will only have a single
+The user that joins to a lobby. He will have a single
 rtc connection to the host.
-
-
-## What can users do?
-
-### Host
-- Create a lobby width a custom name.
-- Make the lobby public or private.
-- Set a maximum number of clients.
-
-### Client
-- Get a list of the public lobbies.
-- Join a lobby by name.
 
 ---
 
@@ -83,7 +75,7 @@ for (const lobby of lobbies) {
 
 ---
 
-## How it works internally?
+## How it works internally
 
 ### Create a Lobby
 
