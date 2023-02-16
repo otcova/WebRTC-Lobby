@@ -17,8 +17,7 @@ The user that creates the lobby. He will be able to
 connect to every client.
 
 - **Client:**
-The user that joins to a lobby. He will have a single
-rtc connection to the host.
+The user that joins a lobby. He will have an `RTCPeerConnection` with the host.
 
 
 ## Examples
@@ -36,15 +35,14 @@ if (lobby) {
     lobby.onClientConnect = client => {
         console.log("Connected", client.id);
         
-        client.channel.send("Hello");
-        client.channel.onmessage = ({data}) => console.log(">", data);
+        client.send("Hello");
+        client.onReceive = message => console.log(message);
     }
 
     lobby.onClientDisconnect = client => {
         console.log("Disconnected", client.id);
     };
-}
-else {
+} else {
     console.log(lobbyName, "lobby already exists");
 }
 ```
@@ -55,13 +53,9 @@ const lobbyName = "Potatoes";
 const lobby = await joinLobby(lobbyName);
 
 if (lobby) {
-    lobby.hostChannel.onmessage = ({data}) => {
-        console.log(">", data);
-        lobby.hostChannel.send(":0");
-    };
-    lobby.hostChannel.onclose = () => console.log("The host has disconected");
-}
-else {
+    lobby.host.onReceive = message => lobby.host.send([message, ":0"]);
+    lobby.onClose = () => console.log("Bye!");
+} else {
     console.log("Can't join to", lobbyName, "lobby");
 }
 ```
@@ -69,7 +63,7 @@ else {
 ```js
 const lobbies = listPublicLobbies(20, { skipFullLobbies: true });
 for (const lobby of lobbies) {
-    console.log(lobby.name, `(${lobby.clientsCount}/${lobby.maxClients}`);
+    console.log(lobby.name, `(${lobby.clientCount}/${lobby.maxClients}`);
 }
 ```
 
@@ -77,20 +71,17 @@ for (const lobby of lobbies) {
 
 ### Create a Lobby
 
-The Host will send the following request to the server:
-```ts
+The Host will connect to the server using a WebSocket. The connection will be used to
+send a "create-lobby" request but will be maintained until the host closes the lobby.
+It is necessary to maintain the connection to do the signalling.
+
+```js
+// Host -> Server
 {
     type: "create-lobby",
-    lobby: {
-        name: "Potatoes",
-        public: false,
-        maxClients: 20,
-    },
-    // To reduce delay a small amount of rtc offers are
-    // created before the clients request an invitation.
-    // If the server doesn't have invitation when the client requested,
-    // it will need to request more to the Host.
-    invitaionts: [{ id, RTCOffer }, { id, RTCOffer }],
+    lobbyName: "Potatoes",
+    public: false,
+    maxClients: 20,
 }
 ```
 
@@ -101,68 +92,30 @@ If the name "Potatoes" is available, the Server will respond with a success:
 The process is an exchange of information between the Server,
 the Host and the Client.
 ```js
-// Client -> Server
+// Client -> Server -> Host
 {
-    type: "request-invitation",
+    type: "join-request",
     lobbyName: "Potatoes",
+    offer: RTCOffer,
 }
 
-// The server might not have enought offers if
-// multiple clients connect at the same time.
-if (lobbies.get("Potatoes").invitations.length == 0) {
-    // Server -> Host
-    {
-        type: "request-invitation",
-        lobbyName: "Potatoes",
-    }
-    // Host -> Server
-    {
-        type: "reply:request-invitation",
-        lobbyName: "Potatoes",
-        invitations: { id, RTCOffer },
-    }
-}
-
-// Server -> Client
+// Host -> Server -> Client
 {
-    type: "reply:request-invitation",
-    lobbyName: "Potatoes",
-    invitation: { id, RTCOffer },
+    type: "join-details",
+    answer: RTCAnswer,
 }
+```
 
-// Server -> Host
-{
-    type: "used-invitation",
-    lobbyName: "Potatoes",
-    invitationId: id,
-}
+## Lobby Client Count
 
+The host will keep track of the clients with the RTCPeerConnection.
+The server will need to receive a notification from the host to
+update the clientCount.
+
+```js
 // Host -> Server
 {
-    type: "reply:used-invitation",
-    lobbyName: "Potatoes",
-    // if max clients hasn't been reached,
-    // it will send another invitation.
-    invitaion?: { id, RTCOffer },
-}
-
-// Client -> Server
-{
-    type: "accept-invitation",
-    lobbyName: "Potatoes",
-    answer: { invitationId, RTCAnswer },
-}
-
-// Server -> Host
-{
-    type: "client-connection",
-    lobbyName: "Potatoes",
-    answer: { invitationId, RTCAnswer },
-}
-
-// Host -> Server
-{
-    type: "reply:client-connection",
-    lobbyName: "Potatoes",
+    type: "update-lobby-metadata",
+    clientCount: 3,
 }
 ```
