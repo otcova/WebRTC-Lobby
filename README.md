@@ -24,40 +24,35 @@ The user that joins a lobby. He will have an `RTCPeerConnection` with the host.
 
 - **Create a lobby**
 ```js
-const options = {
-    public: true,
+const lobbyName = "Potatoes";
+const loobyOptions = {
+    lobbyName,
+    publicLobby: true,
     maxClients: Infinity,
 };
-const lobbyName = "Potatoes";
-const lobby = createLobby(lobbyName, options);
+const lobby = createLobby("<server-url>", loobyOptions);
+if ("error" in lobby) throw Error(`Can't create ${lobbyName} lobby because: ${lobby.error}`);
 
-if (lobby) {
-    lobby.onClientConnect = client => {
-        console.log("Connected", client.id);
-        
-        client.send("Hello");
-        client.onReceive = message => console.log(message);
-    }
-
-    lobby.onClientDisconnect = client => {
-        console.log("Disconnected", client.id);
-    };
-} else {
-    console.log(lobbyName, "lobby already exists");
+lobby.onClientConnect = client => {
+    console.log(`Client ${client.id} Connected`);
+    
+    client.send("Hello");
+    client.onReceive = message => console.log(message);
 }
+
+lobby.onClientDisconnect = client => {
+    console.log(`Client ${client.id} Disconnected`);
+};
 ```
 
 - **Join a lobby**
 ```js
 const lobbyName = "Potatoes";
 const lobby = await joinLobby(lobbyName);
+if ("error" in lobby) throw Error(`Can't join to ${lobbyName} lobby because: ${lobby.error}`);
 
-if (lobby) {
-    lobby.host.onReceive = message => lobby.host.send([message, ":0"]);
-    lobby.onClose = () => console.log("Bye!");
-} else {
-    console.log("Can't join to", lobbyName, "lobby");
-}
+lobby.onReceive = message => lobby.send({ received: message });
+lobby.onClose = () => console.log("Bye!");
 ```
 - **List Public lobbies**
 ```js
@@ -80,12 +75,25 @@ It is necessary to maintain the connection to do the signalling.
 {
     type: "create-lobby",
     lobbyName: "Potatoes",
-    public: false,
+    publicLobby: false,
     maxClients: 20,
 }
 ```
 
-If the name "Potatoes" is available, the Server will respond with a success:
+If the lobby can be created, the Server will respond with the lobby details.
+
+```js
+// Host -> Server
+{
+    type: "lobby-details",
+    details: {
+        lobbyName: "Potatoes",
+        publicLobby: false,
+        maxClients: 20,
+        clientCount: 0,
+    }
+}
+```
 
 ## Join a lobby
 
@@ -101,21 +109,68 @@ the Host and the Client.
 
 // Host -> Server -> Client
 {
-    type: "join-details",
+    type: "join-invitation",
     answer: RTCAnswer,
 }
 ```
 
-## Lobby Client Count
+After this exchange of information the host will be abole to create an
+RTCPeerConnection with the client. Then the host will send to the server
+a `lobby-details` message to update the clientCount.
 
-The host will keep track of the clients with the RTCPeerConnection.
-The server will need to receive a notification from the host to
-update the clientCount.
 
+## Update Lobby Details
+
+The host may want to change some lobby details. To maintain the server in sync
+a message will be send. To know if the changes were successful the server will
+send back the package.
+
+Example of a success:
 ```js
 // Host -> Server
 {
-    type: "update-lobby-metadata",
-    clientCount: 3,
+    type: "lobby-details",
+    details: {
+        lobbyName: "Potatoes",
+        publicLobby: false,
+        maxClients: 4,
+        clientCount: 3,
+    }
+}
+
+// Server -> Host
+{
+    type: "lobby-details",
+    details: {
+        lobbyName: "Potatoes",
+        publicLobby: false,
+        maxClients: 4,
+        clientCount: 3,
+    }
+}
+```
+
+Example of a fail when renameing a lobby:
+```js
+// Host -> Server
+{
+    type: "lobby-details",
+    details: {
+        lobbyName: "Chips",
+        publicLobby: false,
+        maxClients: 20,
+        clientCount: 3,
+    }
+}
+
+// Server -> Host
+{
+    type: "lobby-details",
+    details: {
+        lobbyName: "Potatoes",
+        publicLobby: false,
+        maxClients: 20,
+        clientCount: 3,
+    }
 }
 ```
