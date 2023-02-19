@@ -1,0 +1,26 @@
+lockfileVersion: 5.4
+
+specifiers:
+  '@types/node': ^18.14.0
+  '@types/pako': ^2.0.0
+  macro-compiler: ^1.1.0
+
+devDependencies:
+  '@types/node': 18.14.0
+  '@types/pako': 2.0.0
+  macro-compiler: 1.1.0
+
+packages:
+
+  /@types/node/18.14.0:
+    resolution: {integrity: sha512-5EWrvLmglK+imbCJY0+INViFWUHg1AHel1sq4ZVSfdcNqGy9Edv3UB9IIzzg+xPaUcAgZYcfVs2fBcwDeZzU0A==}
+    dev: true
+
+  /@types/pako/2.0.0:
+    resolution: {integrity: sha512-10+iaz93qR5WYxTo+PMifD5TSxiOtdRaxBf7INGGXMQgTCu8Z/7GYWYFUOS3q/G0nE5boj1r4FEB+WSy7s5gbA==}
+    dev: true
+
+  /macro-compiler/1.1.0:
+    resolution: {integrity: sha512-jMNujK7tUJYxIaDOLNDiE4oVz9Pzcr6mDfB5zERKgCUf7En88p/ei0T61IHymlOZK5JY3/5Q5ft/3iBKBvUc/g==}
+    hasBin: true
+    dev: true

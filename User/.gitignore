@@ -1,0 +1,5 @@
+**/node_modules
+**/build
+**.pnpm-debug.log
+**.tsbuildinfo
+/target/*/src

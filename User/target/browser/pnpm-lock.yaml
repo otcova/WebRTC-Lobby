@@ -1,0 +1,29 @@
+lockfileVersion: 5.4
+
+specifiers:
+  '@types/pako': ^2.0.0
+  pako: ^2.1.0
+  typescript: ^4.9.5
+
+dependencies:
+  pako: 2.1.0
+
+devDependencies:
+  '@types/pako': 2.0.0
+  typescript: 4.9.5
+
+packages:
+
+  /@types/pako/2.0.0:
+    resolution: {integrity: sha512-10+iaz93qR5WYxTo+PMifD5TSxiOtdRaxBf7INGGXMQgTCu8Z/7GYWYFUOS3q/G0nE5boj1r4FEB+WSy7s5gbA==}
+    dev: true
+
+  /pako/2.1.0:
+    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
+    dev: false
+
+  /typescript/4.9.5:
+    resolution: {integrity: sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==}
+    engines: {node: '>=4.2.0'}
+    hasBin: true
+    dev: true

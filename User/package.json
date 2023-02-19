@@ -1,0 +1,29 @@
+{
+	"name": "rtc-lobby",
+	"version": "1.0.0",
+	"description": "Create RTC lobbies",
+	"main": "src/index.ts",
+	"scripts": {
+		"build-macros": "macro-compiler src -t NodeJs target/node/src Browser target/browser/src",
+		"build": "npm run build-macros && npm run build --prefix target/browser && npm run build --prefix target/node"
+	},
+	"keywords": [
+		"webrtc",
+		"server",
+		"signaling",
+		"lobby",
+		"peer",
+		"communication"
+	],
+	"author": {
+		"name": "Otger Comas",
+		"email": "otgercomas@gmail.com"
+	},
+	"license": "ISC",
+	"devDependencies": {
+		"@types/node": "^18.14.0",
+		"@types/pako": "^2.0.0",
+		"macro-compiler": "^1.1.0"
+	},
+	"type": "module"
+}

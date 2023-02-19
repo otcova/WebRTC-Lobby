@@ -1,0 +1,32 @@
+{
+	"name": "rtc-lobby",
+	"version": "1.0.0",
+	"description": "Create RTC lobbies",
+	"type": "module",
+	"main": "src/index.js",
+	"types": "src/index.d.ts",
+	"keywords": [
+		"webrtc",
+		"server",
+		"signaling",
+		"lobby",
+		"peer",
+		"communication"
+	],
+	"author": {
+		"name": "Otger Comas",
+		"email": "otgercomas@gmail.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/otcova/rtc-lobby.git"
+	},
+	"bugs": {
+		"url": "https://github.com/otcova/rtc-lobby/issues"
+	},
+	"homepage": "https://github.com/otcova/rtc-lobby#readme",
+	"license": "ISC",
+	"dependencies": {
+		"pako": "^2.1.0"
+	}
+}

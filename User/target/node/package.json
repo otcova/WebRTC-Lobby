@@ -1,0 +1,30 @@
+{
+	"name": "rtc-lobby-node",
+	"version": "1.0.0",
+	"description": "Create RTC lobbies",
+	"type": "module",
+	"main": "src/index.js",
+	"scripts": {
+		"build": "npx tsc"
+	},
+	"keywords": [
+		"rtc",
+		"server",
+		"signaling",
+		"lobby",
+		"peer",
+		"communication"
+	],
+	"author": {
+		"name": "Otger Comas",
+		"email": "otgercomas@gmail.com"
+	},
+	"license": "ISC",
+	"devDependencies": {
+		"@types/node": "^18.14.0",
+		"typescript": "^4.9.5"
+	},
+	"dependencies": {
+		"wrtc": "^0.4.7"
+	}
+}
