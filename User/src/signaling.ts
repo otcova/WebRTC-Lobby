@@ -1,7 +1,10 @@
 import { LobbyCreationOptions, LobbyDetails } from "./index.js";
 import { AnyError, createTimeout, DeserializeError, displayAny, FetchError, InvalidData, SerializeError, TimeoutError } from "./error.js";
 import { RTCAnswer, RTCOffer } from "./rtc-link.js";
-import { deserialize, DeserializeResult, serialize } from "./serializer.js";
+import { deserialize, DeserializeResult, parse, serialize, stringify } from "./serializer.js";
+
+//! if target == NodeJs
+import WebSocket from "ws";
 
 export type MsgSchema =
 	{
@@ -32,7 +35,7 @@ interface ServerChannel {
 	set onClose(callback: () => void);
 }
 
-function createWebSocket(url: string | URL, timeoutMs: number): Promise<ServerChannel | SerializeError | TimeoutError> {
+function createWebSocket(url: string | URL, timeoutMs: number): Promise<ServerChannel | AnyError> {
 	const ws = new WebSocket(url);
 
 	const server: ServerChannel = {
@@ -47,9 +50,11 @@ function createWebSocket(url: string | URL, timeoutMs: number): Promise<ServerCh
 		},
 		set onReceive(callback: (message: DeserializeResult<MsgSchema>) => void) {
 			ws.onmessage = async ({ data }) => {
-				const message = await deserialize<MsgSchema>(data);
-				if ("error" in message) message.error = "The server response can't be deserialized";
-				callback(message);
+				if (data instanceof Uint8Array) {
+					const message = await deserialize<MsgSchema>(data);
+					if ("error" in message) message.error = "The server response can't be deserialized";
+					callback(message);
+				}
 			}
 		},
 	};
@@ -78,25 +83,27 @@ interface ServerHost {
 	lobbyDetails: LobbyDetails;
 	createRTCAnswer?: (offer: RTCOffer) => Promise<RTCAnswer | AnyError>,
 	/** If the timeout expires the update could happend later anyway */
-	updateLobbyDetails(details: UpdateLobbyDetails, timeoutMs?: number): Promise<LobbyDetails | TimeoutError>;
+	updateLobbyDetails(details: UpdateLobbyDetails, timeoutMs: number): Promise<LobbyDetails | TimeoutError>;
 	close(): void;
 	onClose?: () => void;
 }
 
 export async function createServerHostConnection(
 	serverURL: string,
-	lobbyCreationOptions: LobbyCreationOptions,
+	lobbyOpts: LobbyCreationOptions,
 	timeoutMs: number,
 ): Promise<ServerHost | AnyError> {
 	const channel = await createWebSocket(serverURL, timeoutMs);
 	if ("error" in channel) return channel;
 
+	if (!lobbyOpts.maxClients || lobbyOpts.maxClients > 500) lobbyOpts.maxClients = 500;
+
 	const serializeError = await channel.send({
 		type: "create-lobby",
-		...lobbyCreationOptions,
+		...lobbyOpts,
 	});
 	if (serializeError) return {
-		error: `lobby creation option are invalid ${displayAny(lobbyCreationOptions)}`,
+		error: `lobby creation option are invalid ${displayAny(lobbyOpts)}`,
 		errorType: "invalid-data",
 	};
 
@@ -141,12 +148,12 @@ export async function createServerHostConnection(
 	channel.onReceive = async received => {
 		// Ignore invalid messages
 		if ("error" in received) return;
-		
+
 		const message = received.data;
 		if (message.type == "join-request") {
 			if (server.createRTCAnswer) {
 				const answer = await server.createRTCAnswer(message.offer);
-				if (!("error" in answer)) channel.send({ type: "join-invitation", answer });
+				if (typeof answer == "string") channel.send({ type: "join-invitation", answer });
 			}
 		} else if (message.type == "lobby-details") {
 			lobby.details = message.details;
@@ -171,13 +178,13 @@ export async function connectClient(
 	timeoutMs?: number,
 ): Promise<RTCAnswer | AnyError> {
 
-	const joinRequest = await serialize<MsgSchema>({
+	const joinRequest = stringify<MsgSchema>({
 		type: "join-request",
 		lobbyName,
 		offer,
 	});
 
-	if ("error" in joinRequest) return joinRequest;
+	if (typeof joinRequest != "string") return joinRequest;
 
 	const response = await new Promise<Response | TimeoutError | FetchError>(async resolve => {
 		setTimeout(() => resolve({
@@ -200,7 +207,7 @@ export async function connectClient(
 	if ("error" in response) return response;
 
 
-	const message = await deserialize<MsgSchema>(await response.arrayBuffer())
+	const message = parse<MsgSchema>(await response.text())
 	if ("error" in message) return {
 		error: "The server returned data that can't be deserialized (The data was not serialized correctly or has been corrupted)",
 		errorType: "deserialize",

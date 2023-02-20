@@ -24,6 +24,11 @@ export interface DeserializeError {
 	errorType: "deserialize";
 }
 
+export interface ConnectionError {
+	error: string;
+	errorType: "connection";
+}
+
 export function displayAny(data: any): string {
 	const strData = String(data);
 	if (strData.length < 32) return strData;
@@ -45,5 +50,4 @@ export function createTimeout<T>(milliseconds: number, errorMessage: string): Ti
 	return { resolve, result };
 }
 
-
-export type AnyError = TimeoutError | InvalidData | FetchError | SerializeError | DeserializeError;
+export type AnyError = TimeoutError | InvalidData | FetchError | SerializeError | DeserializeError | ConnectionError;

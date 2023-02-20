@@ -23,6 +23,7 @@
 	"devDependencies": {
 		"@types/node": "^18.14.0",
 		"@types/pako": "^2.0.0",
+		"@types/ws": "^8.5.4",
 		"macro-compiler": "^1.1.0"
 	},
 	"type": "module"

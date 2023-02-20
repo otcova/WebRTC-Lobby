@@ -3,7 +3,7 @@ import wrtc from "wrtc";
 globalThis.RTCPeerConnection =  wrtc.RTCPeerConnection;
 */
 
-import { AnyError, FetchError, InvalidData, TimeoutError } from "./error.js";
+import { AnyError } from "./error.js";
 import { createLinkResponse, createLinkRequest, RTCOffer, RTCLink } from "./rtc-link.js";
 import { connectClient, createServerHostConnection } from "./signaling.js";
 
@@ -14,14 +14,14 @@ export interface ClientConnection extends RTCLink {
 }
 
 export interface LobbyDetails {
-	lobbyName: string,
+	lobbyName: string;
 	publicLobby: boolean;
 	maxClients: number;
 	clientCount: number;
 }
 
 export interface LobbyCreationOptions {
-	lobbyName?: string,
+	lobbyName?: string;
 	publicLobby: boolean;
 	maxClients?: number;
 }
@@ -91,7 +91,7 @@ export async function createLobby(
 
 export interface LobbyClient extends RTCLink { }
 
-/** If lobbyName is undefined, the server will choose a ranom public lobby */
+/** If lobbyName is undefined, the server will choose a random public lobby */
 export async function joinLobby(
 	serverURL: string,
 	lobbyName?: string,
@@ -104,7 +104,7 @@ export async function joinLobby(
 
 	const serverTimoutMs = timeoutMs + startMs - performance.now();
 	const answer = await connectClient(serverURL, linkRequest.offer, lobbyName, serverTimoutMs);
-	if ("error" in answer) return answer;
+	if (typeof answer != "string") return answer;
 
 	const linkTimoutMs = timeoutMs + startMs - performance.now();
 	const link = await linkRequest.createLink(answer, linkTimoutMs);

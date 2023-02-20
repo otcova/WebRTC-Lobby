@@ -1,5 +1,5 @@
 import { InvalidData, SerializeError, TimeoutError, createTimeout } from "./error.js";
-import { serialize, deserialize, SerializeOptions } from "./serializer.js";
+import { serialize, deserialize, SerializeOptions, stringify, parse } from "./serializer.js";
 //! if target == NodeJs
 import { TextEncoder } from "util";
 
@@ -27,8 +27,8 @@ linkB.send(":)");
 
 */
 
-export type RTCOffer = Uint8Array;
-export type RTCAnswer = Uint8Array;
+export type RTCOffer = string;
+export type RTCAnswer = string;
 
 export interface RTCLink {
 	connection: RTCPeerConnection,
@@ -73,22 +73,22 @@ export async function createLinkRequest(): Promise<RTCLinkRequest | SerializeErr
 	const description = await connection.createOffer();
 	connection.setLocalDescription(description);
 
-	const offer = await serialize<RTCLinkDescription>({
+	const offer = stringify<RTCLinkDescription>({
 		description,
 		candidate: await new Promise(resolve => {
 			connection.onicecandidate = e => resolve(e.candidate as RTCIceCandidate);
 		})
-	}, zlibOfferOptions);
+	});
 
-	if ("error" in offer) {
-		offer.error = "Can't serialize the rtc offer"
+	if (typeof offer != "string") {
+		offer.error = "Can't serialize the rtc offer";
 		return offer;
 	}
 
 	return {
 		offer,
 		async createLink(answer: RTCAnswer, timeoutMs: number) {
-			const linkDescription = await deserialize<RTCLinkDescription>(answer, zlibAnswerOptions);
+			const linkDescription = parse<RTCLinkDescription>(answer);
 			if ("error" in linkDescription) return {
 				error: "Invalid RTCAnswer",
 				errorType: "invalid-data",
@@ -117,7 +117,7 @@ export async function createLinkRequest(): Promise<RTCLinkRequest | SerializeErr
 export async function createLinkResponse(offer: RTCOffer, timeoutMs: number)
 	: Promise<RTCLinkResponse | InvalidData | SerializeError> {
 
-	const linkDescription = await deserialize<RTCLinkDescription>(offer, zlibOfferOptions);
+	const linkDescription = parse<RTCLinkDescription>(offer);
 	if ("error" in linkDescription) return {
 		error: "Invalid RTCOffer",
 		errorType: "invalid-data",
@@ -150,14 +150,14 @@ export async function createLinkResponse(offer: RTCOffer, timeoutMs: number)
 		}, timeoutMs);
 	});
 
-	const answer = await serialize<RTCLinkDescription>({
+	const answer = stringify<RTCLinkDescription>({
 		description,
 		candidate: await new Promise(resolve => {
 			connection.onicecandidate = e => resolve(e.candidate as RTCIceCandidate);
 		})
-	}, zlibAnswerOptions);
+	});
 	
-	if ("error" in answer) return answer;
+	if (typeof answer != "string") return answer;
 
 	return { linkPromise, answer };
 }
