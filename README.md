@@ -31,7 +31,7 @@ const loobyOptions = {
     maxClients: Infinity,
 };
 const lobby = createLobby("<server-url>", loobyOptions);
-if ("error" in lobby) throw Error(`Can't create ${lobbyName} lobby because: ${lobby.error}`);
+if ("error" in lobby) throw new Error(`Can't create ${lobbyName} lobby because: ${lobby.error}`);
 
 lobby.onClientConnect = client => {
     console.log(`Client ${client.id} Connected`);
@@ -48,8 +48,8 @@ lobby.onClientDisconnect = client => {
 - **Join a lobby**
 ```js
 const lobbyName = "Potatoes";
-const lobby = await joinLobby(lobbyName);
-if ("error" in lobby) throw Error(`Can't join to ${lobbyName} lobby because: ${lobby.error}`);
+const lobby = await joinLobby("<server-url>", lobbyName);
+if ("error" in lobby) throw new Error(`Can't join to ${lobbyName} lobby because: ${lobby.error}`);
 
 lobby.onReceive = message => lobby.send({ received: message });
 lobby.onClose = () => console.log("Bye!");
