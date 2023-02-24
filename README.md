@@ -23,7 +23,7 @@ The user that joins a lobby. He will have an `RTCPeerConnection` with the host.
 ## Examples
 
 - **Create a lobby**
-```js
+```javascript
 const lobbyName = "Potatoes";
 const loobyOptions = {
     lobbyName,
@@ -46,7 +46,7 @@ lobby.onClientDisconnect = client => {
 ```
 
 - **Join a lobby**
-```js
+```javascript
 const lobbyName = "Potatoes";
 const lobby = await joinLobby("<server-url>", lobbyName);
 if ("error" in lobby) throw new Error(`Can't join to ${lobbyName} lobby because: ${lobby.error}`);
@@ -55,7 +55,7 @@ lobby.onReceive = message => lobby.send({ received: message });
 lobby.onClose = () => console.log("Bye!");
 ```
 - **List Public lobbies**
-```js
+```javascript
 const lobbies = listPublicLobbies(20, { skipFullLobbies: true });
 for (const lobby of lobbies) {
     console.log(lobby.name, `(${lobby.clientCount}/${lobby.maxClients}`);
@@ -70,7 +70,7 @@ The Host will connect to the server using a WebSocket. The connection will be us
 send a "create-lobby" request but will be maintained until the host closes the lobby.
 It is necessary to maintain the connection to do the signalling.
 
-```js
+```javascript
 // Host -> Server
 {
     type: "create-lobby",
@@ -82,7 +82,7 @@ It is necessary to maintain the connection to do the signalling.
 
 If the lobby can be created, the Server will respond with the lobby details.
 
-```js
+```javascript
 // Host -> Server
 {
     type: "lobby-details",
@@ -99,7 +99,7 @@ If the lobby can be created, the Server will respond with the lobby details.
 
 The process is an exchange of information between the Server,
 the Host and the Client.
-```js
+```javascript
 // Client -> Server -> Host
 {
     type: "join-request",
@@ -126,7 +126,7 @@ a message will be send. To know if the changes were successful the server will
 send back the package.
 
 Example of a success:
-```js
+```javascript
 // Host -> Server
 {
     type: "lobby-details",
@@ -151,7 +151,7 @@ Example of a success:
 ```
 
 Example of a fail when renameing a lobby:
-```js
+```javascript
 // Host -> Server
 {
     type: "lobby-details",
