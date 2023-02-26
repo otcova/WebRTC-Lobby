@@ -1,13 +1,20 @@
-#![feature(map_try_insert, type_alias_impl_trait)]
+#![feature(map_try_insert, trait_alias, async_closure)]
 
-mod lobby;
+mod error;
+mod log;
 mod message;
+mod server;
 
 use futures_util::*;
-use lobby::*;
+use lazy_static::lazy_static;
 use message::*;
+use server::*;
 use warp::ws::WebSocket;
-use warp::Filter;
+use warp::{reject, reply, Filter};
+
+lazy_static! {
+    static ref SERVER: Server = Server::default();
+}
 
 #[tokio::main]
 async fn main() {
@@ -15,36 +22,50 @@ async fn main() {
         .and(warp::post())
         .and(warp::body::content_length_limit(1024 * 2))
         .and(warp::body::json())
-        .then(|data: UserMessage| async move {
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            warp::reply::json(&data)
-        });
+        .and_then(|message: UserMessage| handle_client(&SERVER, message));
 
     let api_host = warp::path!("api" / "host")
         .and(warp::ws())
-        .map(|ws: warp::ws::Ws| ws.on_upgrade(handle_host));
+        .map(|ws: warp::ws::Ws| ws.on_upgrade(async move |host| handle_host(&SERVER, host).await));
 
     let routes = api_client.or(api_host);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
-async fn handle_host(host: WebSocket) {
+async fn handle_host(server: &Server, host: WebSocket) {
+    log::user_action!("Host connected");
+
     let (sender, mut receiver) = host.split();
 
     let Some(create_message) = UserMessage::from(receiver.next().await) else {
+        log::user_error!("Host should have sended a create-lobby message");
         return;
     };
 
-    let Some(mut lobby) = Lobby::create(create_message, sender).await else {
+    let Ok(mut lobby_name) = server.create_lobby_from_message(create_message, sender).await else {
+        log::user_error!("Host could not the create lobby");
         return;
     };
 
     while let Some(message) = UserMessage::from(receiver.next().await) {
-        if lobby.handle_host_message(message).is_err() {
-            return;
+        log::user_action!("Received message from host of '{lobby_name}'");
+        match server.handle_host_message(&lobby_name, message).await {
+            Ok(name) => lobby_name = name,
+            Err(()) => break,
         }
     }
 
-    println!("Bye");
+    server.close_lobby(&lobby_name).await;
 }
+
+async fn handle_client(
+    server: &Server,
+    message: UserMessage,
+) -> Result<reply::Json, reject::Rejection> {
+    log::user_action!("Client connected");
+
+    let response = server.handle_user_message(message).await;
+    Ok(reply::json(&response))
+}
+

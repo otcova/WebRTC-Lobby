@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use warp::ws::Message;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LobbyDetails {
     pub lobby_name: String,
@@ -14,8 +14,9 @@ pub struct LobbyDetails {
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum UserMessage {
     #[serde(rename_all = "camelCase")]
-    JoinLobby {
-        lobby_name: String,
+    JoinRequest {
+        lobby_name: Option<String>,
+        offer: String,
     },
     JoinInvitation {
         answer: String,
@@ -29,6 +30,22 @@ pub enum UserMessage {
         public_lobby: bool,
         max_clients: u16,
     },
+    Error {
+        message: UserMessageError,
+    },
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum UserMessageError {
+    LobbyNotFound,
+    InvalidMessageType,
+}
+
+impl Into<UserMessage> for UserMessageError {
+    fn into(self) -> UserMessage {
+        UserMessage::Error { message: self }
+    }
 }
 
 type WsMessage = Option<Result<Message, warp::Error>>;
