@@ -38,10 +38,10 @@ lobby.onClientConnect = client => {
     
     client.send("Hello");
     client.onReceive = message => console.log(message);
-}
 
-lobby.onClientDisconnect = client => {
-    console.log(`Client ${client.id} Disconnected`);
+    client.onDisconnect = client => {
+        console.log(`Client ${client.id} Disconnected`);
+    };
 };
 ```
 
@@ -52,7 +52,7 @@ const lobby = await joinLobby("<server-url>", lobbyName);
 if ("error" in lobby) throw new Error(`Can't join to ${lobbyName} lobby because: ${lobby.error}`);
 
 lobby.onReceive = message => lobby.send({ received: message });
-lobby.onClose = () => console.log("Bye!");
+lobby.onDisconnect = () => console.log("Bye!");
 ```
 - **List Public lobbies**
 ```javascript
