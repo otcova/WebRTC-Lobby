@@ -100,18 +100,32 @@ If the lobby can be created, the Server will respond with the lobby details.
 The process is an exchange of information between the Server,
 the Host and the Client.
 ```javascript
-// Client -> Server -> Host
+// Client -> Server
 {
     type: "join-request",
     lobbyName: "Potatoes",
     offer: RTCOffer,
 }
 
-// Host -> Server -> Client
+// Server -> Host
+{
+    type: "join-request",
+    lobbyName: "Potatoes",
+    offer: RTCOffer,
+    id: 2,
+}
+
+// Host -> Server
 {
     type: "join-invitation",
     answer: RTCAnswer,
+    id: 2,
 }
+
+// Server -> Client
+{
+    type: "join-invitation",
+    answer: RTCAnswer,
 ```
 
 After this exchange of information the host will be abole to create an
