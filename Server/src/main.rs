@@ -1,6 +1,5 @@
 #![feature(map_try_insert, trait_alias, async_closure)]
 
-mod error;
 mod log;
 mod message;
 mod server;
@@ -36,16 +35,21 @@ async fn main() {
 async fn handle_host(server: &Server, host: WebSocket) {
     log::user_action!("Host connected");
 
-    let (sender, mut receiver) = host.split();
+    let (mut sender, mut receiver) = host.split();
 
     let Some(create_message) = UserMessage::from(receiver.next().await) else {
         log::user_error!("Host should have sended a create-lobby message");
+        let _ = sender.send(UserMessageError::InvalidMessage.into()).await;
         return;
     };
 
-    let Ok(mut lobby_name) = server.create_lobby_from_message(create_message, sender).await else {
-        log::user_error!("Host could not the create lobby");
-        return;
+    let lobby_name = server.create_lobby_from_message(create_message, sender);
+    let mut lobby_name = match lobby_name.await {
+        Ok(lobby_name) => lobby_name,
+        Err(()) => {
+            log::user_error!("Host could not the create lobby");
+            return;
+        }
     };
 
     while let Some(message) = UserMessage::from(receiver.next().await) {

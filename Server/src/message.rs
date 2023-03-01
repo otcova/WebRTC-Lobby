@@ -17,9 +17,11 @@ pub enum UserMessage {
     JoinRequest {
         lobby_name: Option<String>,
         offer: String,
+        id: Option<u32>,
     },
     JoinInvitation {
         answer: String,
+        id: Option<u32>,
     },
     LobbyDetails {
         details: LobbyDetails,
@@ -30,8 +32,9 @@ pub enum UserMessage {
         public_lobby: bool,
         max_clients: u16,
     },
+    #[serde(rename_all = "camelCase")]
     Error {
-        message: UserMessageError,
+        error_type: UserMessageError,
     },
 }
 
@@ -39,12 +42,32 @@ pub enum UserMessage {
 #[serde(rename_all = "camelCase")]
 pub enum UserMessageError {
     LobbyNotFound,
-    InvalidMessageType,
+    LobbyAlreadyExists,
+    InvalidMessage,
 }
 
 impl Into<UserMessage> for UserMessageError {
     fn into(self) -> UserMessage {
-        UserMessage::Error { message: self }
+        UserMessage::Error { error_type: self }
+    }
+}
+
+impl Into<Message> for UserMessageError {
+    fn into(self) -> Message {
+        let msg: UserMessage = self.into();
+        let txt = serde_json::to_string(&msg).unwrap_or_else(|_| {
+            r#"{"type":"error","message":"Could not serialize the error"}"#.to_string()
+        });
+        Message::text(txt)
+    }
+}
+
+impl Into<Message> for &UserMessage {
+    fn into(self) -> Message {
+        let txt = serde_json::to_string(self).unwrap_or_else(|_| {
+            r#"{"type":"error","message":"Could not serialize the message"}"#.to_string()
+        });
+        Message::text(txt)
     }
 }
 

@@ -2,10 +2,10 @@ mod lobby;
 mod random_words;
 
 use self::random_words::random_word;
-use crate::error::Result;
 use crate::log;
 use crate::message::*;
 use futures_util::stream::SplitSink;
+use futures_util::*;
 use lobby::*;
 use std::collections::{HashMap, HashSet};
 use tokio::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -22,11 +22,11 @@ pub struct Server {
 }
 
 impl Server {
-    fn create_lobby<'a>(
+    async fn create_lobby<'a>(
         lobbies_map: &mut RwLockWriteGuard<'a, LoobiesMap>,
         host_channel: HostChannel,
         lobby_name: String,
-    ) -> Result<String> {
+    ) -> Result<String, ()> {
         let lobby = Lobby::create(
             host_channel,
             LobbyDetails {
@@ -39,50 +39,48 @@ impl Server {
 
         match lobbies_map.try_insert(lobby_name.clone(), Mutex::new(lobby)) {
             Ok(_) => Ok(lobby_name),
-            Err(_) => {
+            Err(error) => {
                 log::user_action!("Can not create lobby because name already exists");
+                let mut lobby = error.value.lock().await;
+                lobby
+                    .send_error_to_host(UserMessageError::LobbyAlreadyExists)
+                    .await;
                 Err(())
             }
         }
     }
 
-    fn new_random_lobby_name<'a>(
-        lobbies_map: &mut RwLockWriteGuard<'a, LoobiesMap>,
-    ) -> Result<String> {
+    fn new_random_lobby_name<'a>(lobbies_map: &mut RwLockWriteGuard<'a, LoobiesMap>) -> String {
         let mut lobby_name = random_word().to_string();
 
-        for _ in 0..32 {
+        loop {
             if !lobbies_map.contains_key(&lobby_name) {
-                return Ok(lobby_name);
+                return lobby_name;
             }
 
             lobby_name += " ";
             lobby_name += random_word();
         }
-
-        log::error!("Could not generate a new lobby name");
-        Err(())
     }
 
     async fn create_default_lobby<'a>(
         &self,
         host_channel: HostChannel,
         lobby_name: Option<String>,
-    ) -> Result<String> {
+    ) -> Result<String, ()> {
         let mut lobbies_map = self.lobbies_map.write().await;
         let lobby_name = match lobby_name {
             Some(lobby_name) => lobby_name,
-            None => Self::new_random_lobby_name(&mut lobbies_map)?,
+            None => Self::new_random_lobby_name(&mut lobbies_map),
         };
-        Self::create_lobby(&mut lobbies_map, host_channel, lobby_name)
+        Self::create_lobby(&mut lobbies_map, host_channel, lobby_name).await
     }
 
     async fn get_lobby<'a>(
         lobbies_map: &'a RwLockReadGuard<'a, LoobiesMap>,
         lobby_name: &String,
-    ) -> Result<MutexGuard<'a, Lobby>> {
+    ) -> Result<MutexGuard<'a, Lobby>, ()> {
         let Some(lobby) = lobbies_map.get(lobby_name) else {
-            log::error!("The lobby of a host is not registered");
             return Err(());
         };
 
@@ -92,8 +90,8 @@ impl Server {
     pub async fn create_lobby_from_message(
         &self,
         message: UserMessage,
-        host_channel: HostChannel,
-    ) -> Result<String> {
+        mut host_channel: HostChannel,
+    ) -> Result<String, ()> {
         match message {
             UserMessage::CreateLobby {
                 lobby_name,
@@ -114,7 +112,11 @@ impl Server {
                 )
                 .await
             }
-            _ => Err(()),
+            _ => {
+                let error_msg = UserMessageError::InvalidMessage.into();
+                let _ = host_channel.send(error_msg).await;
+                Err(())
+            }
         }
     }
 
@@ -143,7 +145,7 @@ impl Server {
         &self,
         lobby_name: &String,
         mut new_details: LobbyDetails,
-    ) -> Result<String> {
+    ) -> Result<String, ()> {
         log::user_action!("Updateing lobby '{lobby_name}'");
 
         // Try Rename Lobby
@@ -170,7 +172,10 @@ impl Server {
         };
 
         let lobbies_map = self.lobbies_map.read().await;
-        let mut lobby = Self::get_lobby(&lobbies_map, &lobby_name).await?;
+        let Ok(mut lobby) = Self::get_lobby(&lobbies_map, &lobby_name).await else {
+            log::error!("The lobby of a host is not registered");
+            return Err(());
+        };
 
         // Update public lobbies list
         if lobby.is_public() != new_details.public_lobby {
@@ -191,14 +196,23 @@ impl Server {
         &self,
         lobby_name: &String,
         message: UserMessage,
-    ) -> Result<String> {
+    ) -> Result<String, ()> {
         match message {
             UserMessage::LobbyDetails { details } => self.update_lobby(lobby_name, details).await,
-            UserMessage::JoinInvitation { answer } => {
+            UserMessage::JoinInvitation { answer, id } => {
                 let lobbies_map = self.lobbies_map.read().await;
-                let mut lobby = Self::get_lobby(&lobbies_map, lobby_name).await?;
+                let Ok(mut lobby) = Self::get_lobby(&lobbies_map, lobby_name).await else {
+                    log::error!("The lobby of a host is not registered");
+                    return Err(());
+                };
 
-                lobby.send_invitation(UserMessage::JoinInvitation { answer })?;
+                let Some(id) = id else {
+                    log::user_error!("The join invitation should have an id");
+                    lobby.send_error_to_host(UserMessageError::InvalidMessage).await;
+                    return Err(());
+                };
+
+                lobby.send_invitation(answer, id)?;
                 Ok(lobby_name.clone())
             }
             _ => Err(()),
@@ -206,16 +220,17 @@ impl Server {
     }
 
     pub async fn handle_user_message(&self, message: UserMessage) -> UserMessage {
-        match &message {
+        match message {
             UserMessage::JoinRequest {
                 lobby_name,
-                offer: _,
+                offer,
+                id: _,
             } => {
                 log::user_action!("Received join-request");
 
                 let join_invitation = {
                     let lobby_name = if let Some(lobby_name) = lobby_name {
-                        lobby_name.clone()
+                        lobby_name
                     } else {
                         // Pick any lobby from the public list
                         let public_lobbies = self.public_lobbies.read().await;
@@ -231,7 +246,7 @@ impl Server {
                         return UserMessageError::LobbyNotFound.into();
                     };
 
-                    lobby.request_invitation(&message).await
+                    lobby.request_invitation(offer).await
                 };
 
                 let Ok(join_invitation) = join_invitation else {
@@ -244,7 +259,7 @@ impl Server {
                     UserMessageError::LobbyNotFound.into()
                 }
             }
-            _ => UserMessageError::InvalidMessageType.into(),
+            _ => UserMessageError::InvalidMessage.into(),
         }
     }
 }
