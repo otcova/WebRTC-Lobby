@@ -5,6 +5,8 @@
 	"main": "src/index.ts",
 	"scripts": {
 		"build-macros": "macro-compiler src -t NodeJs target/node/src Browser target/browser/src",
+		"build-node": "npm run build-macros && npm run build --prefix target/node",
+		"build-browser": "npm run build-macros && npm run build --prefix target/browser",
 		"build": "npm run build-macros && npm run build --prefix target/browser && npm run build --prefix target/node"
 	},
 	"keywords": [
@@ -21,10 +23,10 @@
 	},
 	"license": "ISC",
 	"devDependencies": {
-		"@types/node": "^18.14.0",
+		"@types/node": "^18.14.2",
 		"@types/pako": "^2.0.0",
 		"@types/ws": "^8.5.4",
-		"macro-compiler": "^1.1.0"
+		"macro-compiler": "^1.1.1"
 	},
 	"type": "module"
 }
