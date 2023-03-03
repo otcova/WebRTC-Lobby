@@ -1,0 +1,7 @@
+lockfileVersion: 5.4
+
+specifiers:
+  rtc-lobby-node: link:..\lib
+
+dependencies:
+  rtc-lobby-node: link:../lib
