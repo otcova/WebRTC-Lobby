@@ -30,7 +30,8 @@ const loobyOptions = {
     publicLobby: true,
     maxClients: Infinity,
 };
-const lobby = createLobby("<server-url>", loobyOptions);
+const serverUrl = "127.0.0.1:3030";
+const lobby = createLobby(serverUrl, loobyOptions);
 if ("error" in lobby) throw new Error(`Can't create ${lobbyName} lobby because: ${lobby.error}`);
 
 lobby.onClientConnect = client => {
@@ -48,15 +49,21 @@ lobby.onClientConnect = client => {
 - **Join a lobby**
 ```javascript
 const lobbyName = "Potatoes";
-const lobby = await joinLobby("<server-url>", lobbyName);
+const serverUrl = "127.0.0.1:3030";
+const lobby = await joinLobby(serverUrl, lobbyName);
 if ("error" in lobby) throw new Error(`Can't join to ${lobbyName} lobby because: ${lobby.error}`);
 
 lobby.onReceive = message => lobby.send({ received: message });
 lobby.onDisconnect = () => console.log("Bye!");
 ```
+
 - **List Public lobbies**
 ```javascript
-const lobbies = listPublicLobbies(20, { skipFullLobbies: true });
+const maximumLobbies = 20; // Don't waste time listing more lobbies than what I need.
+const minimumCapacity = 1; // Skip full lobbies
+const serverUrl = "127.0.0.1:3030";
+const lobbies = await listPublicLobbies(serverUrl, { maximumLobbies, minimumCapacity });
+
 for (const lobby of lobbies) {
     console.log(lobby.name, `(${lobby.clientCount}/${lobby.maxClients}`);
 }
