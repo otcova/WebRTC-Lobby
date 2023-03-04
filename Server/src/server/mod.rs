@@ -259,6 +259,37 @@ impl Server {
                     UserMessageError::LobbyNotFound.into()
                 }
             }
+            UserMessage::LobbiesListRequest {
+                maximum_lobbies,
+                minimum_capacity,
+            } => {
+                log::user_action!("Received lobbies-list-request");
+
+                let lobbies_map = self.lobbies_map.read().await;
+                let public_lobbies = self.public_lobbies.read().await;
+
+                let mut lobbies = vec![];
+
+                for lobby_name in public_lobbies.iter() {
+                    let Some(lobby) = lobbies_map.get(lobby_name) else {
+                        continue;
+                    };
+
+                    let lobby = lobby.lock().await;
+                    let details = lobby.details();
+
+                    if details.capacity() < minimum_capacity {
+                        continue;
+                    }
+
+                    lobbies.push(details.clone());
+                    if lobbies.len() >= maximum_lobbies {
+                        break;
+                    }
+                }
+
+                UserMessage::LobbiesList { lobbies }
+            }
             _ => UserMessageError::InvalidMessage.into(),
         }
     }

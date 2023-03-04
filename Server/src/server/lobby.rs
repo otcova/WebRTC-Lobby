@@ -22,6 +22,10 @@ impl Lobby {
         }
     }
 
+    pub fn details(&self) -> &LobbyDetails {
+        &self.details
+    }
+
     async fn send_message_to_host(&mut self, message: &UserMessage) -> Result<(), ()> {
         if self.host_channel.send(message.into()).await.is_ok() {
             Ok(())

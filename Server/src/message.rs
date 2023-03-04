@@ -10,6 +10,12 @@ pub struct LobbyDetails {
     pub client_count: u16,
 }
 
+impl LobbyDetails {
+    pub fn capacity(&self) -> u16 {
+        self.max_clients.saturating_sub(self.client_count)
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum UserMessage {
@@ -31,6 +37,14 @@ pub enum UserMessage {
         lobby_name: Option<String>,
         public_lobby: bool,
         max_clients: u16,
+    },
+    #[serde(rename_all = "camelCase")]
+    LobbiesListRequest {
+        maximum_lobbies: usize,
+        minimum_capacity: u16,
+    },
+    LobbiesList {
+        lobbies: Vec<LobbyDetails>,
     },
     #[serde(rename_all = "camelCase")]
     Error {
