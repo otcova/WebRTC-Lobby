@@ -29,6 +29,15 @@ export type MsgSchema =
         details: LobbyDetails,
     } |
     {
+        type: "lobbies-list-request",
+        maximumLobbies: number,
+        minimumCapacity: number,
+    } |
+    {
+        type: "lobbies-list"
+        lobbies: LobbyDetails[],
+    } |
+    {
         type: "error",
         errorType: "lobbyNotFound" | "lobbyAlreadyExists" | "invalidMessage",
     };
@@ -105,6 +114,7 @@ export async function createServerHostConnection(
     lobbyOpts: LobbyCreationOptions,
     timeoutMs: number,
 ): Promise<ServerHost | InternalError> {
+    serverURL = "ws://" + serverURL + "/api/host";
     const channel = await createWebSocket(serverURL, timeoutMs);
     if ("error" in channel) return channel;
 
@@ -198,20 +208,15 @@ export async function createServerHostConnection(
     return server;
 }
 
-export async function connectClient(
+export async function serverRequest(
     serverURL: string,
-    offer: RTCOffer,
     timeoutMs: number,
-    lobbyName?: string,
-): Promise<RTCAnswer | InternalError | LobbyNotFound> {
+    request: MsgSchema,
+): Promise<MsgSchema | InternalError> {
+    serverURL = "http://" + serverURL + "/api/client";
 
-    const joinRequest = stringify<MsgSchema>({
-        type: "join-request",
-        lobbyName,
-        offer,
-    });
-
-    if (typeof joinRequest != "string") return joinRequest;
+    const strRequest = stringify(request);
+    if (typeof strRequest != "string") return strRequest;
 
     const server = createTimeout<Response | ConnectionError>(
         timeoutMs, `The server '${serverURL}' has not responded`
@@ -229,7 +234,7 @@ export async function connectClient(
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
-            body: joinRequest,
+            body: strRequest,
             signal: controller.signal,
         }));
     } catch (error) {
@@ -257,16 +262,85 @@ export async function connectClient(
         errorType: "deserialize",
     }
 
-    if (message.data.type == "join-invitation") return message.data.answer;
-    if (message.data.type == "error" && message.data.errorType == "lobbyNotFound") {
+    return message.data;
+}
+
+export async function connectClient(
+    serverURL: string,
+    offer: RTCOffer,
+    timeoutMs: number,
+    lobbyName?: string,
+): Promise<RTCAnswer | InternalError | LobbyNotFound> {
+    /*
+        const joinRequest = stringify<MsgSchema>({
+            type: "join-request",
+            lobbyName,
+            offer,
+        });
+    
+        if (typeof joinRequest != "string") return joinRequest;
+    
+        const server = createTimeout<Response | ConnectionError>(
+            timeoutMs, `The server '${serverURL}' has not responded`
+        );
+    
+        try {
+            const controller = new AbortController();
+            server.result.then(error => {
+                if ("error" in error && error.errorType == "timeout") controller.abort()
+            });
+    
+            server.resolve(await fetch(serverURL, {
+                method: "POST",
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: joinRequest,
+                signal: controller.signal,
+            }));
+        } catch (error) {
+            server.resolve({
+                error: String(error),
+                errorType: "connection",
+            });
+        }
+    
+        const response = await server.result;
+        if ("error" in response) return response;
+    
+        let text_response: string;
+        try { text_response = await response.text() }
+        catch (e) {
+            return {
+                error: "The server returned an invalid data type",
+                errorType: "invalidData",
+            }
+        }
+    
+        const message = parse<MsgSchema>(text_response)
+        if ("error" in message) return {
+            error: `The server returned data that can't be deserialized (data: '${text_response}')`,
+            errorType: "deserialize",
+        }*/
+    const message = await serverRequest(serverURL, timeoutMs, {
+        type: "join-request",
+        lobbyName,
+        offer,
+    });
+
+    if ("error" in message) return message;
+
+    if (message.type == "join-invitation") return message.answer;
+    if (message.type == "error" && message.errorType == "lobbyNotFound") {
         let error: string;
-        if (!lobbyName) error = `There is no lobby with name '${lobbyName}'`;
+        if (lobbyName) error = `There is no lobby with name '${lobbyName}'`;
         else error = "There wasn't any public lobby to join";
         return { error, errorType: "lobbyNotFound" };
     }
 
     return {
-        error: `The server returned unexpected data (Data received: ${JSON.stringify(message.data)})`,
+        error: `The server returned unexpected data (Data received: ${JSON.stringify(message)})`,
         errorType: "invalidData",
     }
 }

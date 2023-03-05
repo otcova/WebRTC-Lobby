@@ -5,7 +5,7 @@ globalThis.RTCPeerConnection =  wrtc.RTCPeerConnection;
 
 import { InternalError, LobbyNotFound } from "./error.js";
 import { createLinkResponse, createLinkRequest, RTCOffer, RTCLink } from "./rtc-link.js";
-import { connectClient, createServerHostConnection } from "./signaling.js";
+import { connectClient, createServerHostConnection, serverRequest } from "./signaling.js";
 
 
 export type ClientId = number;
@@ -105,3 +105,27 @@ export async function joinLobby(
     return link;
 }
 
+interface ListLobbiesOptions {
+    maximumLobbies?: number,
+    minimumCapacity?: number,
+}
+
+export async function listPublicLobbies(
+    serverURL: string,
+    options: ListLobbiesOptions = {},
+    timeoutMs: number = 5000,
+): Promise<LobbyDetails[] | InternalError> {
+    const response = await serverRequest(serverURL, timeoutMs, {
+        type: "lobbies-list-request",
+        maximumLobbies: options.maximumLobbies ?? 1000,
+        minimumCapacity: options.minimumCapacity ?? 0,
+    });
+    
+    if ("error" in response) return response;
+    if (response.type == "lobbies-list") return response.lobbies;
+
+    return {
+        error: `The server returned unexpected data (Data received: ${JSON.stringify(response)})`,
+        errorType: "invalidData",
+    }
+}
