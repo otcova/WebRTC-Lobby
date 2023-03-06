@@ -7,7 +7,8 @@
 		"build-macros": "macro-compiler src -t NodeJs target/node/src Browser target/browser/src",
 		"build-node": "npm run build-macros && npm run build --prefix target/node",
 		"build-browser": "npm run build-macros && npm run build --prefix target/browser",
-		"build": "npm run build-macros && npm run build --prefix target/browser && npm run build --prefix target/node"
+		"build": "npm run build-macros && npm run build --prefix target/browser && npm run build --prefix target/node",
+        "test": "npm run start --prefix target/node/test"
 	},
 	"keywords": [
 		"webrtc",

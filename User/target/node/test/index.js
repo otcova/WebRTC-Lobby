@@ -1,43 +1,86 @@
-import { createLobby, joinLobby } from "rtc-lobby-node";
-import { assert, shouldResolve } from "./error-utils.js";
+import { createLobby, joinLobby, listPublicLobbies } from "rtc-lobby-node";
+import { assert, runTests, shouldResolve, startTest } from "./error-utils.js";
 
-const clientUrl = "http://127.0.0.1:3030/api/client";
-const hostUrl = "ws://127.0.0.1:3030/api/host";
+const serverUrl = "127.0.0.1:3030";
 
-// This is to prevent a bug on RTCPeerConnection of the package wrtc
-// When we call `.close()` it overwites the exit code to 3221226505.
-process.on("exit", () => process.exit());
-
-{
-    let lobby = await joinLobby(clientUrl);
+startTest(async () => {
+    let lobby = await joinLobby(serverUrl);
     const msg = "Client can't join if there aren't lobbies";
 
-    if (lobby.errorType == "lobbyNotFound")
-        assert(lobby.errorType == "lobbyNotFound", msg);
+    if (lobby.errorType == "lobbyNotFound") assert(lobby.errorType == "lobbyNotFound", msg);
     else if ("error" in lobby) assert(lobby, msg);
     else {
         error(msg);
         lobby.close();
     }
-}
+});
 
-createLobby(hostUrl + "invalidUrl").then(lobby => {
+startTest(async () => {
+    let lobby = await createLobby(serverUrl + "/invalidUrl");
     assert(lobby.errorType == "connection", "Connection error if the url is invalid");
 });
 
-createLobby(hostUrl).then(lobby => {
+await runTests();
+
+startTest(async () => {
+    let lobby = await joinLobby(serverUrl);
+    assert(lobby.errorType == "lobbyNotFound", "Join any lobby when there are none");
+});
+
+startTest(async () => {
+    let lobbies = await listPublicLobbies(serverUrl);
+    assert(lobbies.length == 0, "List lobbies when there are none");
+});
+
+await runTests();
+
+startTest(async () => {
+    const lobbies = await Promise.all([
+        createLobby(serverUrl, { publicLobby: true, maxClients: 1 }),
+        createLobby(serverUrl, { publicLobby: true, maxClients: 1 }),
+        createLobby(serverUrl, { publicLobby: true, maxClients: 2 }),
+        createLobby(serverUrl, { publicLobby: true, maxClients: 2 }),
+        createLobby(serverUrl, { publicLobby: true, maxClients: 2 }),
+        createLobby(serverUrl, { publicLobby: true, maxClients: 3 }),
+        createLobby(serverUrl, { publicLobby: true, maxClients: 4 }),
+    ]);
+
+    const maximumLobbies = 3;
+    const minimumCapacity = 2;
+    let listed_lobbies = await listPublicLobbies(serverUrl, {
+        maximumLobbies,
+        minimumCapacity,
+    });
+
+    for (const lobby of lobbies) lobby.close();
+
+    if ("error" in listed_lobbies) return assert(listed_lobbies, "Listed lobbies");
+    if (listed_lobbies.length != maximumLobbies) return error("List lobbies");
+    for (const lobby of listed_lobbies) {
+        if (lobby.maxClients < minimumCapacity) return error("List lobbies");
+    }
+
+});
+
+await runTests();
+
+startTest(async () => {
+    let lobby = await createLobby(serverUrl);
     if (!assert(lobby, "Create lobby with random name")) return;
+
     const onClose = new Promise(resolve => lobby.onClose = resolve);
     lobby.close();
     shouldResolve(onClose, "Host connection closed");
 });
 
-createLobby(hostUrl, { lobbyName: "Potatoes" }).then(lobby => {
+startTest(async () => {
+    let lobby = await createLobby(serverUrl, { lobbyName: "Potatoes" });
     if (!assert(lobby, "Create lobby")) return;
     lobby.close();
 });
 
-joinLobby(clientUrl, "there's-no-lobby-with-this-name").then(lobby => {
+startTest(async () => {
+    let lobby = await joinLobby(serverUrl, "there's-no-lobby-with-this-name");
     assert(lobby.errorType == "lobbyNotFound",
         "Client can't join to a lobby that does not exist"
     );
@@ -45,7 +88,8 @@ joinLobby(clientUrl, "there's-no-lobby-with-this-name").then(lobby => {
 });
 
 
-createLobby(hostUrl, { lobbyName: "123 Abracadabra :O" }).then(async lobby => {
+startTest(async () => {
+    let lobby = await createLobby(serverUrl, { lobbyName: "123 Abracadabra :O" });
     shouldResolve(new Promise(resolve => {
 
         lobby.onClientConnect = client => {
@@ -54,7 +98,7 @@ createLobby(hostUrl, { lobbyName: "123 Abracadabra :O" }).then(async lobby => {
 
     }), "Detect a client disconnect");
 
-    const client = await joinLobby(clientUrl, lobby.lobbyName);
+    const client = await joinLobby(serverUrl, lobby.lobbyName);
     lobby.close();
 
     if (assert(client, "Connect a client to a lobby by name")) {
@@ -62,7 +106,8 @@ createLobby(hostUrl, { lobbyName: "123 Abracadabra :O" }).then(async lobby => {
     }
 });
 
-createLobby(hostUrl, { lobbyName: "321 Pomelo :O" }).then(async lobby => {
+startTest(async () => {
+    let lobby = await createLobby(serverUrl, { lobbyName: "321 Pomelo :O" });
     const numOfClients = 2;
 
     shouldResolve(new Promise(resolve => {
@@ -77,8 +122,8 @@ createLobby(hostUrl, { lobbyName: "321 Pomelo :O" }).then(async lobby => {
     }), "Detect " + numOfClients + " disconnections");
 
     const clients = await Promise.all([
-        joinLobby(clientUrl, lobby.lobbyName),
-        joinLobby(clientUrl, lobby.lobbyName),
+        joinLobby(serverUrl, lobby.lobbyName),
+        joinLobby(serverUrl, lobby.lobbyName),
     ]);
 
     lobby.close();
@@ -99,9 +144,11 @@ const traffic = {
 };
 
 for (let i = 0; i < traffic.hosts; ++i) {
-    const lobbyName = i % 2 == 0 ? "traffic" + i : undefined;
-    let promise = createLobby(hostUrl, { lobbyName }).then(async lobby => {
+    startTest(async () => {
+        const lobbyName = i % 2 == 0 ? "traffic" + i : undefined;
+        let lobby = await createLobby(serverUrl, { lobbyName });
         if ("error" in lobby) return;
+
         return new Promise(resolve => {
             ++traffic.createdLobbies;
 
@@ -122,7 +169,7 @@ for (let i = 0; i < traffic.hosts; ++i) {
 
             for (let j = 0; j < traffic.clientsPerHost; ++j) {
                 let msgToSend = { n: j };
-                joinLobby(clientUrl, lobby.lobbyName).then(clientLobby => {
+                joinLobby(serverUrl, lobby.lobbyName).then(clientLobby => {
                     if ("error" in clientLobby) {
                         lobby.close();
                         console.log(clientLobby);
@@ -141,13 +188,9 @@ for (let i = 0; i < traffic.hosts; ++i) {
             }
         });
     });
-
-    traffic.promises.push(promise);
 }
 
-shouldResolve(Promise.all(traffic.promises),
-    "Many simultaneous requests resolved quickly"
-);
+await runTests();
 
 Promise.all(traffic.promises).then(() => {
     assert(traffic.createdLobbies == traffic.hosts,
