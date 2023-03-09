@@ -1,5 +1,5 @@
 {
-	"name": "rtc-lobby",
+	"name": "rtc-lobby-browser",
 	"version": "1.0.0",
 	"description": "Create RTC lobbies",
 	"type": "module",
